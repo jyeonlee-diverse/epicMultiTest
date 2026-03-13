@@ -18,11 +18,19 @@ public static class EosPrototypeBootstrap
             UnityEngine.Object.DontDestroyOnLoad(eosGo);
         }
 
-        if (UnityEngine.Object.FindObjectOfType<EosPrototypeController>() == null)
+        // [Territory Mode] EosPrototypeController temporarily disabled
+        // if (UnityEngine.Object.FindObjectOfType<EosPrototypeController>() == null)
+        // {
+        //     var protoGo = new GameObject("EosPrototypeController");
+        //     protoGo.AddComponent<EosPrototypeController>();
+        //     UnityEngine.Object.DontDestroyOnLoad(protoGo);
+        // }
+
+        if (UnityEngine.Object.FindObjectOfType<TerritoryGameController>() == null)
         {
-            var protoGo = new GameObject("EosPrototypeController");
-            protoGo.AddComponent<EosPrototypeController>();
-            UnityEngine.Object.DontDestroyOnLoad(protoGo);
+            var territoryGo = new GameObject("TerritoryGameController");
+            territoryGo.AddComponent<TerritoryGameController>();
+            UnityEngine.Object.DontDestroyOnLoad(territoryGo);
         }
     }
 }
