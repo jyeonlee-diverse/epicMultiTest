@@ -1,0 +1,92 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Glitter
+  m_Shader: {fileID: 4800000, guid: 4a63bdb4880260140a3437c2bb64e161, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BaseTex:
+        m_Texture: {fileID: 2800000, guid: 2c8b168a57f4d8d45ac5660c9f79dbb2, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _ImageA:
+        m_Texture: {fileID: 2800000, guid: 5c7128eab44c67d4fb2da1e114b22e71, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _ImageB:
+        m_Texture: {fileID: 2800000, guid: 5c6f26400cfc55c49bc6177063379693, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _LentiTex:
+        m_Texture: {fileID: 2800000, guid: 2089e05f64383b44e95f4f9e594d0ca8, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 2800000, guid: 08d61235a926661419ca25fa3160485f, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _Alpha: 0.505
+    - _BeadRadius: 0.5
+    - _ColorBlend: 1
+    - _FresnelRainbow: 1.5
+    - _GlitterDensity: 0.614
+    - _GlitterDriftAmount: 0.15
+    - _GlitterDriftSpeed: 1.15
+    - _GlitterInsideMask: 0.165
+    - _GlitterIntensity: 0.52
+    - _GlitterScale: 39
+    - _GlitterSize: 0.12
+    - _GlitterSpeed: 2.5
+    - _GlitterViewPower: 3.5
+    - _GlitterViewStrength: 1.2
+    - _HoloShift: 1.25
+    - _HoloSpeed: 1.08
+    - _LentiScale: 80
+    - _LentiScroll: 0.1
+    - _LentiStrength: 1
+    - _LentiStrips: 5
+    - _MicroLensBlend: 0.05
+    - _MicroLensScale: 200
+    - _PrismIntensity: 0.8
+    - _PrismSpread: 0.015
+    - _RainbowScale: 3.2
+    - _RainbowSpeed: 0.4
+    - _RainbowStrength: 2.67
+    - _RefractionStrength: 0.051
+    - _RimPower: 1.56
+    - _SpecPower: 48
+    - _SwapAngle: 0.19
+    - _SwapAxis: 0
+    - _SwapBias: -0.12
+    - _SwapRange: 0.25
+    - _SwapSharpness: 4.2
+    m_Colors:
+    - _ColorA: {r: 0.6, g: 1, b: 0.95, a: 1}
+    - _ColorB: {r: 1, g: 0.6, b: 0.9, a: 1}
+    - _ColorC: {r: 0.8867924, g: 0.7539443, b: 0.18823427, a: 1}
+    - _RimColor: {r: 1, g: 1, b: 1, a: 1}
+    - _SpecColor: {r: 1, g: 1, b: 1, a: 1}
+    - _SpecColor2: {r: 1, g: 1, b: 1, a: 1}
+    - _Tint: {r: 0.7, g: 0.9, b: 1, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1

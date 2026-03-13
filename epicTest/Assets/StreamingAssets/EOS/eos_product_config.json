@@ -1,0 +1,38 @@
+{
+  "ProductName": "Battle Colosseum",
+  "ProductId": "24489edc492b4ab4a63533b9fa5f33ba",
+  "ProductVersion": "1.0.0",
+  "imported": true,
+  "Clients": [
+    {
+      "Value": {
+        "ClientId": "xyza7891nZmqB6RxME3ZJFgsgwixDF5G",
+        "ClientSecret": "kNseBDuS1BOPXeubNqg+XcJTN/dp/cEgkCwutwI+Lac",
+        "EncryptionKey": ""
+      },
+      "Name": "Client"
+    }
+  ],
+  "Environments": {
+    "Deployments": [
+      {
+        "Value": {
+          "SandboxId": {
+            "Value": "p-dgubv6gvvgw9qkd6knnu6dwfe2tzyc"
+          },
+          "DeploymentId": "9ad6b0b8a4404b14ab55ae0ad6093d2e"
+        },
+        "Name": "Deployment"
+      }
+    ],
+    "Sandboxes": [
+      {
+        "Value": {
+          "Value": "p-dgubv6gvvgw9qkd6knnu6dwfe2tzyc"
+        },
+        "Name": "Sandbox"
+      }
+    ]
+  },
+  "schemaVersion": "1.0"
+}
