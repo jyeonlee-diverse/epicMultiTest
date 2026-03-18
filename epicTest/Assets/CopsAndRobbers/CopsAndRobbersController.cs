@@ -55,6 +55,11 @@ public class CopsAndRobbersController : MonoBehaviour
     private static readonly Color ColorEscaped = new Color(0.2f, 0.9f, 0.3f, 1f);
     private static readonly Color ColorObstacle = new Color(0.45f, 0.42f, 0.4f, 1f);
 
+    // ───── Shader Mode ─────
+    public enum ShaderMode { Standard, Jelly, Clay }
+    [Header("Shader Mode")]
+    public ShaderMode shaderMode = ShaderMode.Jelly;
+
     // ───── EOS Managers ─────
     private EOSLobbyManager lobbyManager;
     private EOSSessionsManager sessionsManager;
@@ -96,6 +101,12 @@ public class CopsAndRobbersController : MonoBehaviour
     private float remainingTime;
     private float lastTimerSendTime;
 
+    // ───── Character Models ─────
+    private const string PoliceFbxPath = "Characters/character-male-c";
+    private const string ThiefFbxPath = "Characters/character-male-e";
+    private GameObject policePrefab;
+    private GameObject thiefPrefab;
+
     // ───── Players ─────
     private GameObject localPlayer;
     private readonly Dictionary<string, GameObject> remotePlayers = new Dictionary<string, GameObject>();
@@ -122,7 +133,9 @@ public class CopsAndRobbersController : MonoBehaviour
     private readonly List<GameObject> escapeMarkers = new List<GameObject>();
 
     // ───── Camera ─────
-    private Vector3 cameraOffset = new Vector3(0f, 30f, -20f);
+    private static readonly Vector3 CameraOffsetLobby = new Vector3(0f, 30f, -20f);
+    private static readonly Vector3 CameraOffsetGame = new Vector3(0f, 12f, -8f);
+    private Vector3 cameraOffset = CameraOffsetLobby;
 
     // ───── Lobby Search ─────
     private class LobbySearchEntry
@@ -140,6 +153,10 @@ public class CopsAndRobbersController : MonoBehaviour
     {
         Application.runInBackground = true;
         displayName = "Player" + UnityEngine.Random.Range(1000, 9999);
+        policePrefab = Resources.Load<GameObject>(PoliceFbxPath);
+        thiefPrefab = Resources.Load<GameObject>(ThiefFbxPath);
+        if (policePrefab == null) Debug.LogError("Police FBX not found at Resources/" + PoliceFbxPath);
+        if (thiefPrefab == null) Debug.LogError("Thief FBX not found at Resources/" + ThiefFbxPath);
     }
 
     private void Start()
@@ -308,12 +325,9 @@ public class CopsAndRobbersController : MonoBehaviour
         }
         if (localPlayer == null)
         {
-            localPlayer = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            localPlayer.name = "CRLocalPlayer";
-            localPlayer.transform.position = new Vector3(GridSize * 0.5f, 0.5f, GridSize * 0.25f);
-            localPlayer.transform.localScale = new Vector3(1.0f, 1.0f, 1.0f);
-            var r = localPlayer.GetComponent<Renderer>();
-            if (r != null) r.sharedMaterial = CreateMat(Color.white);
+            // Start with thief model; will be swapped when role is assigned
+            localPlayer = CreateCharacterModel(thiefPrefab, "CRLocalPlayer");
+            localPlayer.transform.position = new Vector3(GridSize * 0.5f, 0f, GridSize * 0.25f);
         }
 
         // ── Camera ──
@@ -561,15 +575,25 @@ public class CopsAndRobbersController : MonoBehaviour
         SpawnPlayerAtRole();
         UpdatePlayerVisual(localPlayer, localRole, localRole == PlayerRole.Thief ? localThiefState : ThiefState.Free);
 
-        // Update remote player visuals
-        foreach (var kvp in remotePlayers)
+        // Update remote player models and visuals
+        var remoteKeys = new List<string>(remotePlayers.Keys);
+        foreach (var key in remoteKeys)
         {
-            if (playerRoles.TryGetValue(kvp.Key, out PlayerRole role))
+            if (playerRoles.TryGetValue(key, out PlayerRole role))
             {
+                // Swap model to match role
+                GameObject prefab = role == PlayerRole.Police ? policePrefab : thiefPrefab;
+                GameObject old = remotePlayers[key];
+                Vector3 pos = old != null ? old.transform.position : Vector3.zero;
+                if (old != null) Destroy(old);
+                GameObject newRemote = CreateCharacterModel(prefab, "CRRemote_" + key);
+                newRemote.transform.position = pos;
+                remotePlayers[key] = newRemote;
+
                 ThiefState ts = ThiefState.Free;
                 if (role == PlayerRole.Thief)
-                    thiefStates.TryGetValue(kvp.Key, out ts);
-                UpdatePlayerVisual(kvp.Value, role, ts);
+                    thiefStates.TryGetValue(key, out ts);
+                UpdatePlayerVisual(newRemote, role, ts);
             }
         }
     }
@@ -603,52 +627,32 @@ public class CopsAndRobbersController : MonoBehaviour
     {
         if (localPlayer == null) return;
 
+        // Swap model to match role
+        GameObject prefab = localRole == PlayerRole.Police ? policePrefab : thiefPrefab;
+        SwapCharacterModel(ref localPlayer, prefab, "CRLocalPlayer");
+
         if (localRole == PlayerRole.Police)
         {
             // North spawn
-            localPlayer.transform.position = new Vector3(GridSize * 0.5f, 0.5f, 56f);
+            localPlayer.transform.position = new Vector3(GridSize * 0.5f, 0f, 56f);
         }
         else
         {
             // South spawn
-            localPlayer.transform.position = new Vector3(GridSize * 0.5f, 0.5f, 8f);
+            localPlayer.transform.position = new Vector3(GridSize * 0.5f, 0f, 8f);
         }
     }
 
     private void UpdatePlayerVisual(GameObject player, PlayerRole role, ThiefState state)
     {
         if (player == null) return;
-        var r = player.GetComponent<Renderer>();
-        if (r == null) return;
 
-        Color c;
         float scale;
-
         if (role == PlayerRole.Police)
-        {
-            c = ColorPolice;
             scale = 1.3f;
-        }
         else
-        {
-            switch (state)
-            {
-                case ThiefState.Jailed:
-                    c = ColorJailed;
-                    scale = 0.8f;
-                    break;
-                case ThiefState.Escaped:
-                    c = ColorEscaped;
-                    scale = 1.0f;
-                    break;
-                default:
-                    c = ColorThief;
-                    scale = 1.0f;
-                    break;
-            }
-        }
+            scale = (state == ThiefState.Jailed) ? 0.8f : 1.0f;
 
-        r.sharedMaterial = CreateMat(c);
         player.transform.localScale = new Vector3(scale, scale, scale);
     }
 
@@ -760,7 +764,7 @@ public class CopsAndRobbersController : MonoBehaviour
         // Move jailed player to jail
         if (remotePlayers.TryGetValue(peerId, out GameObject remote))
         {
-            remote.transform.position = new Vector3(JailCenter.x + 0.5f, 0.5f, JailCenter.y + 0.5f);
+            remote.transform.position = new Vector3(JailCenter.x + 0.5f, 0f, JailCenter.y + 0.5f);
             UpdatePlayerVisual(remote, PlayerRole.Thief, ThiefState.Jailed);
         }
 
@@ -769,7 +773,7 @@ public class CopsAndRobbersController : MonoBehaviour
         if (localId != null && peerId == localId.ToString())
         {
             localThiefState = ThiefState.Jailed;
-            localPlayer.transform.position = new Vector3(JailCenter.x + 0.5f, 0.5f, JailCenter.y + 0.5f);
+            localPlayer.transform.position = new Vector3(JailCenter.x + 0.5f, 0f, JailCenter.y + 0.5f);
             UpdatePlayerVisual(localPlayer, localRole, localThiefState);
         }
 
@@ -792,12 +796,12 @@ public class CopsAndRobbersController : MonoBehaviour
                 {
                     localThiefState = ThiefState.Free;
                     // Respawn at south
-                    localPlayer.transform.position = new Vector3(GridSize * 0.5f, 0.5f, 8f);
+                    localPlayer.transform.position = new Vector3(GridSize * 0.5f, 0f, 8f);
                     UpdatePlayerVisual(localPlayer, localRole, localThiefState);
                 }
                 else if (remotePlayers.TryGetValue(key, out GameObject remote))
                 {
-                    remote.transform.position = new Vector3(GridSize * 0.5f, 0.5f, 8f);
+                    remote.transform.position = new Vector3(GridSize * 0.5f, 0f, 8f);
                     UpdatePlayerVisual(remote, PlayerRole.Thief, ThiefState.Free);
                 }
             }
@@ -872,13 +876,18 @@ public class CopsAndRobbersController : MonoBehaviour
         float speed = localRole == PlayerRole.Police ? 13f : 12f;
         float moveX = Input.GetAxisRaw("Horizontal");
         float moveZ = Input.GetAxisRaw("Vertical");
-        Vector3 delta = new Vector3(moveX, 0f, moveZ).normalized * speed * Time.deltaTime;
+        Vector3 dir = new Vector3(moveX, 0f, moveZ).normalized;
+        Vector3 delta = dir * speed * Time.deltaTime;
         Vector3 newPos = localPlayer.transform.position + delta;
+
+        // Face movement direction
+        if (dir.sqrMagnitude > 0.01f)
+            localPlayer.transform.rotation = Quaternion.LookRotation(dir, Vector3.up);
 
         // Clamp to grid
         newPos.x = Mathf.Clamp(newPos.x, 0.5f, GridSize - 0.5f);
         newPos.z = Mathf.Clamp(newPos.z, 0.5f, GridSize - 0.5f);
-        newPos.y = 0.5f;
+        newPos.y = 0f;
 
         // Obstacle collision (simple AABB)
         if (!IsBlockedByObstacle(localPlayer.transform.position, newPos))
@@ -886,8 +895,8 @@ public class CopsAndRobbersController : MonoBehaviour
         else
         {
             // Try sliding along axes
-            Vector3 slideX = new Vector3(newPos.x, 0.5f, localPlayer.transform.position.z);
-            Vector3 slideZ = new Vector3(localPlayer.transform.position.x, 0.5f, newPos.z);
+            Vector3 slideX = new Vector3(newPos.x, 0f, localPlayer.transform.position.z);
+            Vector3 slideZ = new Vector3(localPlayer.transform.position.x, 0f, newPos.z);
 
             if (!IsBlockedByObstacle(localPlayer.transform.position, slideX))
                 localPlayer.transform.position = slideX;
@@ -929,14 +938,13 @@ public class CopsAndRobbersController : MonoBehaviour
     {
         if (!remotePlayers.TryGetValue(peerId, out GameObject remote))
         {
-            remote = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            remote.name = "CRRemote_" + peerId;
-            remote.transform.localScale = new Vector3(1.0f, 1.0f, 1.0f);
-
-            // Set color based on role
+            // Choose model based on role
             PlayerRole role = PlayerRole.Thief;
-            ThiefState ts = ThiefState.Free;
             if (playerRoles.TryGetValue(peerId, out PlayerRole pr)) role = pr;
+            GameObject prefab = role == PlayerRole.Police ? policePrefab : thiefPrefab;
+            remote = CreateCharacterModel(prefab, "CRRemote_" + peerId);
+
+            ThiefState ts = ThiefState.Free;
             if (role == PlayerRole.Thief) thiefStates.TryGetValue(peerId, out ts);
             UpdatePlayerVisual(remote, role, ts);
 
@@ -984,7 +992,15 @@ public class CopsAndRobbersController : MonoBehaviour
             }
 
             float t = 1f - Mathf.Exp(-smooth * Time.deltaTime);
-            remote.transform.position = Vector3.Lerp(current, predicted, t);
+            Vector3 newPos = Vector3.Lerp(current, predicted, t);
+
+            // Face movement direction
+            Vector3 moveDir = newPos - current;
+            moveDir.y = 0f;
+            if (moveDir.sqrMagnitude > 0.0001f)
+                remote.transform.rotation = Quaternion.LookRotation(moveDir, Vector3.up);
+
+            remote.transform.position = newPos;
         }
     }
 
@@ -1197,13 +1213,98 @@ public class CopsAndRobbersController : MonoBehaviour
         }
     }
 
+    private GameObject CreateCharacterModel(GameObject prefab, string name)
+    {
+        GameObject go;
+        if (prefab != null)
+        {
+            go = Instantiate(prefab);
+            go.name = name;
+            // Add a BoxCollider for obstacle collision checks (FBX models don't have one by default)
+            if (go.GetComponent<Collider>() == null)
+                go.AddComponent<BoxCollider>();
+        }
+        else
+        {
+            // Fallback to cube if FBX not loaded
+            go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            go.name = name;
+        }
+        return go;
+    }
+
+    private void SwapCharacterModel(ref GameObject current, GameObject prefab, string name)
+    {
+        Vector3 pos = current != null ? current.transform.position : Vector3.zero;
+        Quaternion rot = current != null ? current.transform.rotation : Quaternion.identity;
+        if (current != null) Destroy(current);
+
+        current = CreateCharacterModel(prefab, name);
+        current.transform.position = pos;
+        current.transform.rotation = rot;
+    }
+
+    private void SetCharacterColor(GameObject player, Color c)
+    {
+        if (player == null) return;
+        var renderers = player.GetComponentsInChildren<Renderer>();
+        var mat = CreateMat(c);
+        foreach (var r in renderers)
+            r.sharedMaterial = mat;
+    }
+
     private Material CreateMat(Color c)
     {
-        Shader s = Shader.Find("Standard");
-        if (s == null) s = Shader.Find("Legacy Shaders/Diffuse");
-        if (s == null) s = Shader.Find("Unlit/Color");
+        switch (shaderMode)
+        {
+            case ShaderMode.Jelly: return CreateJellyMat(c);
+            case ShaderMode.Clay:  return CreateClayMat(c);
+            default:
+                Shader s = Shader.Find("Standard");
+                if (s == null) s = Shader.Find("Legacy Shaders/Diffuse");
+                if (s == null) s = Shader.Find("Unlit/Color");
+                var m = new Material(s);
+                m.color = c;
+                return m;
+        }
+    }
+
+    private Material CreateJellyMat(Color c)
+    {
+        Shader s = Shader.Find("Custom/Jelly");
+        if (s == null)
+        {
+            Debug.LogWarning("Custom/Jelly shader not found, falling back to Standard");
+            var fallback = new Material(Shader.Find("Standard"));
+            fallback.color = c;
+            return fallback;
+        }
         var m = new Material(s);
-        m.color = c;
+        m.SetColor("_JellyColor", c);
+        m.SetFloat("_Alpha", Mathf.Clamp(c.a, 0.5f, 0.9f));
+
+        Color.RGBToHSV(c, out float h, out float sat, out float val);
+        Color sssCol = Color.HSVToRGB(Mathf.Repeat(h - 0.05f, 1f), sat * 0.6f, Mathf.Min(val + 0.3f, 1f));
+        m.SetColor("_SSSColor", sssCol);
+
+        Color rimCol = Color.HSVToRGB(h, sat * 0.3f, Mathf.Min(val + 0.4f, 1f));
+        m.SetColor("_RimColor", rimCol);
+
+        return m;
+    }
+
+    private Material CreateClayMat(Color c)
+    {
+        Shader s = Shader.Find("Custom/Clay");
+        if (s == null)
+        {
+            Debug.LogWarning("Custom/Clay shader not found, falling back to Standard");
+            var fallback = new Material(Shader.Find("Standard"));
+            fallback.color = c;
+            return fallback;
+        }
+        var m = new Material(s);
+        m.SetColor("_ClayColor", c);
         return m;
     }
 
@@ -1385,6 +1486,7 @@ public class CopsAndRobbersController : MonoBehaviour
         gameEnded = false;
         gameState = "WAITING";
         remainingTime = GameDuration;
+        cameraOffset = CameraOffsetLobby;
         startUpdateInProgress = false;
         localRole = PlayerRole.None;
         localThiefState = ThiefState.Free;
@@ -1395,12 +1497,11 @@ public class CopsAndRobbersController : MonoBehaviour
         if (obstaclesRoot != null) { Destroy(obstaclesRoot); obstaclesRoot = null; }
         obstacleColliders.Clear();
 
-        // Reset player visual
+        // Reset player to default thief model
         if (localPlayer != null)
         {
-            localPlayer.transform.position = new Vector3(GridSize * 0.5f, 0.5f, GridSize * 0.25f);
-            var r = localPlayer.GetComponent<Renderer>();
-            if (r != null) r.sharedMaterial = CreateMat(Color.white);
+            SwapCharacterModel(ref localPlayer, thiefPrefab, "CRLocalPlayer");
+            localPlayer.transform.position = new Vector3(GridSize * 0.5f, 0f, GridSize * 0.25f);
             localPlayer.transform.localScale = Vector3.one;
         }
     }
@@ -1422,6 +1523,7 @@ public class CopsAndRobbersController : MonoBehaviour
             if (!string.IsNullOrEmpty(seedStr) && int.TryParse(seedStr, out int parsed))
                 gameSeed = parsed;
 
+            cameraOffset = CameraOffsetGame;
             SpawnObstacles();
             AssignRoles();
             statusMessage = "Game started! Role: " + localRole + " | Seed: " + gameSeed;

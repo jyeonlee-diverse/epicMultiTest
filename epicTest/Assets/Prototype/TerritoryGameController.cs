@@ -82,6 +82,11 @@ public class TerritoryGameController : MonoBehaviour
     private static readonly Color ColorRemote = new Color(0.85f, 0.15f, 0.15f, 1f);
     private static readonly Color ColorGridLine = new Color(0.25f, 0.25f, 0.25f, 1f);
 
+    // ───── Shader Mode ─────
+    public enum ShaderMode { Standard, Jelly, Clay }
+    [Header("Shader Mode")]
+    public ShaderMode shaderMode = ShaderMode.Jelly;
+
     // ───── Capture Cubes ─────
     private GameObject cubesRoot;
     private readonly List<GameObject> captureCubes = new List<GameObject>();
@@ -730,11 +735,56 @@ public class TerritoryGameController : MonoBehaviour
 
     private Material CreateMat(Color c)
     {
-        Shader s = Shader.Find("Standard");
-        if (s == null) s = Shader.Find("Legacy Shaders/Diffuse");
-        if (s == null) s = Shader.Find("Unlit/Color");
+        switch (shaderMode)
+        {
+            case ShaderMode.Jelly: return CreateJellyMat(c);
+            case ShaderMode.Clay:  return CreateClayMat(c);
+            default:
+                Shader s = Shader.Find("Standard");
+                if (s == null) s = Shader.Find("Legacy Shaders/Diffuse");
+                if (s == null) s = Shader.Find("Unlit/Color");
+                var m = new Material(s);
+                m.color = c;
+                return m;
+        }
+    }
+
+    private Material CreateJellyMat(Color c)
+    {
+        Shader s = Shader.Find("Custom/Jelly");
+        if (s == null)
+        {
+            Debug.LogWarning("Custom/Jelly shader not found, falling back to Standard");
+            var fallback = new Material(Shader.Find("Standard"));
+            fallback.color = c;
+            return fallback;
+        }
         var m = new Material(s);
-        m.color = c;
+        m.SetColor("_JellyColor", c);
+        m.SetFloat("_Alpha", Mathf.Clamp(c.a, 0.5f, 0.9f));
+
+        Color.RGBToHSV(c, out float h, out float sat, out float val);
+        Color sssCol = Color.HSVToRGB(Mathf.Repeat(h - 0.05f, 1f), sat * 0.6f, Mathf.Min(val + 0.3f, 1f));
+        m.SetColor("_SSSColor", sssCol);
+
+        Color rimCol = Color.HSVToRGB(h, sat * 0.3f, Mathf.Min(val + 0.4f, 1f));
+        m.SetColor("_RimColor", rimCol);
+
+        return m;
+    }
+
+    private Material CreateClayMat(Color c)
+    {
+        Shader s = Shader.Find("Custom/Clay");
+        if (s == null)
+        {
+            Debug.LogWarning("Custom/Clay shader not found, falling back to Standard");
+            var fallback = new Material(Shader.Find("Standard"));
+            fallback.color = c;
+            return fallback;
+        }
+        var m = new Material(s);
+        m.SetColor("_ClayColor", c);
         return m;
     }
 
