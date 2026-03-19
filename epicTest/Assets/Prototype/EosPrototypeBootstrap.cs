@@ -44,7 +44,7 @@ public class GameModeSelector : MonoBehaviour
 {
     private void OnGUI()
     {
-        float w = 400, h = 250;
+        float w = 400, h = 320;
         float x = (Screen.width - w) * 0.5f;
         float y = (Screen.height - h) * 0.5f;
 
@@ -73,13 +73,20 @@ public class GameModeSelector : MonoBehaviour
             LaunchCopsAndRobbers();
         }
 
+        GUILayout.Space(10);
+
+        if (GUILayout.Button("Island Warfare", btnStyle))
+        {
+            LaunchIslandWarfare();
+        }
+
         GUILayout.Space(15);
 
         var descStyle = new GUIStyle(GUI.skin.label)
         {
             fontSize = 11, alignment = TextAnchor.MiddleCenter, wordWrap = true
         };
-        GUILayout.Label("Territory: 2 players, capture cubes on 64x64 grid\nCops & Robbers: up to 10 players, tag game", descStyle);
+        GUILayout.Label("Territory: 2 players, capture cubes on 64x64 grid\nCops & Robbers: up to 10 players, tag game\nIsland Warfare: up to 4 players, build & battle", descStyle);
 
         GUILayout.EndArea();
     }
@@ -101,6 +108,17 @@ public class GameModeSelector : MonoBehaviour
         {
             var go = new GameObject("CopsAndRobbersController");
             go.AddComponent<CopsAndRobbersController>();
+            DontDestroyOnLoad(go);
+        }
+        Destroy(gameObject);
+    }
+
+    private void LaunchIslandWarfare()
+    {
+        if (Object.FindObjectOfType<IslandWarfareController>() == null)
+        {
+            var go = new GameObject("IslandWarfareController");
+            go.AddComponent<IslandWarfareController>();
             DontDestroyOnLoad(go);
         }
         Destroy(gameObject);
