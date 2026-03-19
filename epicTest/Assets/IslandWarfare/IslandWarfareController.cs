@@ -117,6 +117,10 @@ public class IslandWarfareController : MonoBehaviour
     private readonly int[] islandHP = new int[4];
     private readonly bool[] islandAlive = { true, true, true, true };
 
+    // ───── Towers (one per island) ─────
+    private readonly Vector3[] towerPositions = new Vector3[4];
+    private readonly GameObject[] towerObjects = new GameObject[4];
+
     // ───── Resources ─────
     private enum ResourceType { Wood, Stone, Iron }
 
@@ -180,6 +184,15 @@ public class IslandWarfareController : MonoBehaviour
     private GameObject cannonBallPrefab;
     private GameObject wallPrefab;
 
+    // ───── Island Model ─────
+    private const string IslandFbxPath = "Buildings/patch-sand";
+    private GameObject islandPrefab;
+
+    // ───── Tower Model ─────
+    private const string TowerFbxPath = "Buildings/tower-complete-small";
+    private GameObject towerPrefab;
+    private const float TowerHitRadius = 2.5f;
+
     // ───── Resource Models (loaded from Resources/Buildings) ─────
     private const string WoodFbxPath = "Buildings/palm-bend";
     private const string StoneFbxPath = "Buildings/rock-a";
@@ -238,6 +251,14 @@ public class IslandWarfareController : MonoBehaviour
         if (cannonPrefab == null) Debug.LogWarning("Cannon FBX not found at Resources/" + CannonFbxPath);
         if (cannonBallPrefab == null) Debug.LogWarning("Cannon-ball FBX not found at Resources/" + CannonBallFbxPath);
         if (wallPrefab == null) Debug.LogWarning("Wall FBX not found at Resources/" + WallFbxPath);
+
+        // Load island model
+        islandPrefab = Resources.Load<GameObject>(IslandFbxPath);
+        if (islandPrefab == null) Debug.LogWarning("Island FBX not found at Resources/" + IslandFbxPath);
+
+        // Load tower model
+        towerPrefab = Resources.Load<GameObject>(TowerFbxPath);
+        if (towerPrefab == null) Debug.LogWarning("Tower FBX not found at Resources/" + TowerFbxPath);
 
         // Load resource models
         woodPrefab = Resources.Load<GameObject>(WoodFbxPath);
@@ -414,16 +435,39 @@ public class IslandWarfareController : MonoBehaviour
             if (GameObject.Find(name) == null)
             {
                 var origin = IslandOrigins[i];
-                var platform = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                platform.name = name;
-                platform.transform.position = new Vector3(
-                    origin.x + IslandSize * 0.5f,
-                    0.15f,
-                    origin.y + IslandSize * 0.5f);
-                platform.transform.localScale = new Vector3(IslandSize, 0.3f, IslandSize);
-                var r = platform.GetComponent<Renderer>();
-                if (r != null) r.sharedMaterial = CreateMat(ColorIsland);
-                // Keep collider for raycasting builds
+                GameObject platform;
+
+                if (islandPrefab != null)
+                {
+                    platform = Instantiate(islandPrefab);
+                    platform.name = name;
+                    platform.transform.position = new Vector3(
+                        origin.x + IslandSize * 0.5f,
+                        -0.5f,
+                        origin.y + IslandSize * 0.5f);
+                    // Scale to cover 16x16 island area (patch-sand base ~5 units wide)
+                    platform.transform.localScale = Vector3.one * 3.5f;
+                    // Add a box collider for raycasting builds (FBX may not have one)
+                    if (platform.GetComponent<Collider>() == null)
+                    {
+                        var box = platform.AddComponent<BoxCollider>();
+                        box.center = new Vector3(0f, 0.01f, 0f);
+                        box.size = new Vector3(1f, 0.02f, 1f);
+                    }
+                }
+                else
+                {
+                    // Fallback to cube
+                    platform = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    platform.name = name;
+                    platform.transform.position = new Vector3(
+                        origin.x + IslandSize * 0.5f,
+                        0.15f,
+                        origin.y + IslandSize * 0.5f);
+                    platform.transform.localScale = new Vector3(IslandSize, 0.3f, IslandSize);
+                    var r = platform.GetComponent<Renderer>();
+                    if (r != null) r.sharedMaterial = CreateMat(ColorIsland);
+                }
             }
         }
 
@@ -525,7 +569,8 @@ public class IslandWarfareController : MonoBehaviour
                 PaintIslandColor(i, IslandPlayerColors[i]);
         }
 
-        // Spawn resources
+        // Spawn towers and resources
+        SpawnTowers();
         SpawnResources();
 
         // Color the local player
@@ -601,6 +646,7 @@ public class IslandWarfareController : MonoBehaviour
                 PaintIslandColor(i, IslandPlayerColors[i]);
         }
 
+        SpawnTowers();
         SpawnResources();
 
         if (localIslandIndex >= 0 && localIslandIndex < IslandPlayerColors.Length)
@@ -642,6 +688,46 @@ public class IslandWarfareController : MonoBehaviour
     // ═══════════════════════════════════════════
     //  RESOURCES
     // ═══════════════════════════════════════════
+
+    private void SpawnTowers()
+    {
+        var rng = new System.Random(gameSeed + 200);
+
+        for (int i = 0; i < 4; i++)
+        {
+            if (!islandAlive[i]) continue;
+            if (towerObjects[i] != null) continue;
+
+            var origin = IslandOrigins[i];
+            // Random position within island (with margin from edges)
+            float tx = origin.x + 4f + (float)(rng.NextDouble() * (IslandSize - 8));
+            float tz = origin.y + 4f + (float)(rng.NextDouble() * (IslandSize - 8));
+            towerPositions[i] = new Vector3(tx, 0.3f, tz);
+
+            GameObject tower;
+            if (towerPrefab != null)
+            {
+                tower = Instantiate(towerPrefab);
+                tower.name = "Tower_" + i;
+                tower.transform.position = towerPositions[i];
+                tower.transform.localScale = Vector3.one * 0.8f;
+                foreach (var c in tower.GetComponentsInChildren<Collider>()) Destroy(c);
+            }
+            else
+            {
+                // Fallback
+                tower = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                tower.name = "Tower_" + i;
+                tower.transform.position = towerPositions[i] + Vector3.up * 1.5f;
+                tower.transform.localScale = new Vector3(1f, 3f, 1f);
+                var r = tower.GetComponent<Renderer>();
+                if (r != null) r.sharedMaterial = CreateMat(IslandPlayerColors[i]);
+                var col = tower.GetComponent<Collider>();
+                if (col != null) Destroy(col);
+            }
+            towerObjects[i] = tower;
+        }
+    }
 
     private void SpawnResources()
     {
@@ -1189,8 +1275,24 @@ public class IslandWarfareController : MonoBehaviour
             return;
         }
 
-        // Damage island
-        islandHP[targetIsland] -= CannonDamage;
+        // Check if hitting the tower (2x damage) or ground (half damage)
+        int damage;
+        float distToTower = Vector3.Distance(
+            new Vector3(landPoint.x, 0, landPoint.z),
+            new Vector3(towerPositions[targetIsland].x, 0, towerPositions[targetIsland].z));
+
+        if (distToTower <= TowerHitRadius && towerObjects[targetIsland] != null)
+        {
+            // Tower hit: double damage
+            damage = CannonDamage * 2;
+        }
+        else
+        {
+            // Ground hit: half damage
+            damage = Mathf.Max(1, CannonDamage / 2);
+        }
+
+        islandHP[targetIsland] -= damage;
         if (islandHP[targetIsland] <= 0)
         {
             islandHP[targetIsland] = 0;
@@ -1218,8 +1320,25 @@ public class IslandWarfareController : MonoBehaviour
 
     private void OnIslandDestroyed(int islandIndex)
     {
-        // Paint island as dark/destroyed
+        // Paint island as dark/destroyed on grid texture
         PaintIslandColor(islandIndex, new Color(0.2f, 0.2f, 0.2f, 1f));
+
+        // Darken the island platform model
+        var platform = GameObject.Find("IslandPlatform_" + islandIndex);
+        if (platform != null)
+        {
+            var renderers = platform.GetComponentsInChildren<Renderer>();
+            var darkMat = CreateMat(new Color(0.2f, 0.15f, 0.1f, 1f));
+            foreach (var r in renderers)
+                r.sharedMaterial = darkMat;
+        }
+
+        // Destroy tower on that island
+        if (towerObjects[islandIndex] != null)
+        {
+            Destroy(towerObjects[islandIndex]);
+            towerObjects[islandIndex] = null;
+        }
 
         // Remove buildings on that island
         for (int i = buildings.Count - 1; i >= 0; i--)
@@ -1994,6 +2113,14 @@ public class IslandWarfareController : MonoBehaviour
         foreach (var p in projectiles)
             if (p.Visual != null) Destroy(p.Visual);
         projectiles.Clear();
+
+        // Destroy towers
+        for (int i = 0; i < 4; i++)
+        {
+            if (towerObjects[i] != null) Destroy(towerObjects[i]);
+            towerObjects[i] = null;
+            towerPositions[i] = Vector3.zero;
+        }
 
         // Destroy resources
         foreach (var obj in resourceObjects)
